@@ -12,6 +12,7 @@ import folium
 from streamlit_folium import st_folium
 
 
+
 # CONFIGURACIÓN GENERAL
 st.set_page_config(
     page_title="Expropiaciones Ruta Nacional N.° 27",
@@ -19,7 +20,7 @@ st.set_page_config(
     layout="wide"
 )
 
-st.title("🗺️ Aplicación web SIG: Expropiaciones en la Ruta Nacional N.° 27")
+st.title("🗺️ Aplicación web SIG: Expropiaciones en la Ruta Nacional N.° 32")
 
 st.markdown(
     """
@@ -34,12 +35,14 @@ st.markdown(
 )
 
 
-# CARGA DE DATOS
 
+# CARGA DE DATOS
 URL_CSV = "https://raw.githubusercontent.com/Ervlopez/PROYECTO/main/Datos_Expropiacion-III.csv"
 URL_GEOJSON = "https://raw.githubusercontent.com/Ervlopez/PROYECTO/main/distritos.geojson"
 
 
+
+# CONFIGURACION DE DATOS
 
 @st.cache_data
 def cargar_datos():
@@ -54,32 +57,60 @@ def cargar_datos():
     df["latitud"] = pd.to_numeric(df["latitud"], errors="coerce")
     df["longiud"] = pd.to_numeric(df["longiud"], errors="coerce")
 
+    # Eliminar registros sin coordenadas válidas para el mapa
+    df = df.dropna(subset=["latitud", "longiud"])
+
     return df
 
+
+try:
+    expropiaciones = cargar_datos()
+except Exception as error:
+    st.error(
+        "No se pudieron cargar los datos. Revise que los archivos estén en el repositorio "
+        "público de GitHub y que las URL raw sean correctas."
+    )
+    st.exception(error)
+    st.stop()
+
+
 # FILTROS INTERACTIVOS
+st.sidebar.header("🔎 Filtros interactivos")
 
-
-opciones_condicion = ["Todas"] + sorted(
-    df["condicion"].dropna().unique().tolist()
+provincias = sorted(expropiaciones["Provincia"].dropna().unique())
+provincia_sel = st.sidebar.multiselect(
+    "Seleccione una o varias provincias:",
+    options=provincias,
+    default=provincias
 )
 
-condicion = st.sidebar.selectbox(
-    "Seleccione una condición",
-    opciones_condicion
+condiciones = sorted(expropiaciones["condicion"].dropna().unique())
+condicion_sel = st.sidebar.multiselect(
+    "Seleccione la condición del trámite:",
+    options=condiciones,
+    default=condiciones
 )
 
-# Aplicar filtro
-if condicion == "Todas":
-    datos_filtrados = df.copy()
-else:
-    datos_filtrados = df[
-        df["condicion"] == condicion
-    ]
+area_min = float(expropiaciones["Area_re"].min())
+area_max = float(expropiaciones["Area_re"].max())
 
+rango_area = st.sidebar.slider(
+    "Rango de área registral (m²):",
+    min_value=area_min,
+    max_value=area_max,
+    value=(area_min, area_max)
+)
+
+datos_filtrados = expropiaciones[
+    (expropiaciones["Provincia"].isin(provincia_sel)) &
+    (expropiaciones["condicion"].isin(condicion_sel)) &
+    (expropiaciones["Area_re"].between(rango_area[0], rango_area[1]))
+].copy()
+
+st.sidebar.markdown(f"**Registros seleccionados:** {len(datos_filtrados)}")
 
 
 # INDICADORES GENERALES
-
 col1, col2, col3 = st.columns(3)
 
 with col1:
@@ -92,9 +123,7 @@ with col3:
     st.metric("Provincias seleccionadas", datos_filtrados["Provincia"].nunique())
 
 
-
 # TABLA CON PANDAS
-
 st.header("1. Tabla de datos filtrados")
 
 st.markdown(
@@ -119,7 +148,6 @@ st.dataframe(
 
 
 # GRÁFICO ESTADÍSTICO CON PLOTLY
-
 st.header("2. Gráfico estadístico")
 
 st.markdown(
@@ -158,7 +186,6 @@ else:
 
 
 # TABLA RESUMEN ADICIONAL
-
 st.subheader("Resumen por condición del trámite")
 
 st.markdown(
@@ -168,7 +195,8 @@ st.markdown(
 )
 
 if not datos_filtrados.empty:
-  
+    # Se usa size() para contar registros sin depender de una columna específica
+    # como "Identificador", ya que el nombre puede variar según el CSV.
     resumen_condicion = (
         datos_filtrados
         .groupby("condicion", as_index=False)
@@ -191,9 +219,7 @@ if not datos_filtrados.empty:
     st.dataframe(resumen_condicion, use_container_width=True)
 
 
-
 # MAPA INTERACTIVO CON FOLIUM
-
 st.header("3. Mapa interactivo")
 
 st.markdown(
@@ -225,8 +251,8 @@ else:
         }
     ).add_to(mapa)
 
-    # Marcadores de expropiaciones.
-  
+    # Marcadores de expropiaciones organizados por condición.
+    # Esto permite activar o desactivar cada condición desde el control de capas.
     colores_condicion = {
         "En trámite": "orange",
         "Finalizado": "green",
@@ -235,41 +261,49 @@ else:
         "Pendiente": "red",
     }
 
-    for _, registro in datos_filtrados.iterrows():
-        condicion = registro.get("condicion", "N/D")
+    condiciones_mapa = sorted(datos_filtrados["condicion"].dropna().unique())
+
+    for condicion in condiciones_mapa:
+        grupo_condicion = folium.FeatureGroup(
+            name=f"Condición: {condicion}",
+            show=True
+        )
+
+        datos_condicion = datos_filtrados[datos_filtrados["condicion"] == condicion]
         color_punto = colores_condicion.get(condicion, "blue")
 
-        popup_html = f"""
-        <b>Identificador:</b> {registro.get('Identificador', 'N/D')}<br>
-        <b>Finca:</b> {registro.get('Finca', 'N/D')}<br>
-        <b>Año:</b> {registro.get('Año', 'N/D')}<br>
-        <b>Provincia:</b> {registro.get('Provincia', 'N/D')}<br>
-        <b>Cantón:</b> {registro.get('Cantón', 'N/D')}<br>
-        <b>Distrito:</b> {registro.get('Distrito', 'N/D')}<br>
-        <b>Condición:</b> {condicion}<br>
-        <b>Área registral:</b> {registro.get('Area_re', 0):,.2f} m²
-        """
+        for _, registro in datos_condicion.iterrows():
+            popup_html = f"""
+            <b>Identificador:</b> {registro.get('Identificador', 'N/D')}<br>
+            <b>Finca:</b> {registro.get('Finca', 'N/D')}<br>
+            <b>Año:</b> {registro.get('Año', 'N/D')}<br>
+            <b>Provincia:</b> {registro.get('Provincia', 'N/D')}<br>
+            <b>Cantón:</b> {registro.get('Cantón', 'N/D')}<br>
+            <b>Distrito:</b> {registro.get('Distrito', 'N/D')}<br>
+            <b>Condición:</b> {registro.get('condicion', 'N/D')}<br>
+            <b>Área registral:</b> {registro.get('Area_re', 0):,.2f} m²
+            """
 
-        folium.CircleMarker(
-            location=[registro["latitud"], registro["longiud"]],
-            radius=5,
-            color=color_punto,
-            fill=True,
-            fill_color=color_punto,
-            fill_opacity=0.7,
-            weight=1,
-            popup=folium.Popup(popup_html, max_width=300),
-            tooltip=f"{registro.get('Provincia', 'N/D')} - {condicion}"
-        ).add_to(mapa)
+            folium.CircleMarker(
+                location=[registro["latitud"], registro["longiud"]],
+                radius=5,
+                color=color_punto,
+                fill=True,
+                fill_color=color_punto,
+                fill_opacity=0.7,
+                weight=1,
+                popup=folium.Popup(popup_html, max_width=300),
+                tooltip=f"{registro.get('Provincia', 'N/D')} - {registro.get('condicion', 'N/D')}"
+            ).add_to(grupo_condicion)
 
-    folium.LayerControl(collapsed=True).add_to(mapa)
+        grupo_condicion.add_to(mapa)
+
+    folium.LayerControl(collapsed=False).add_to(mapa)
 
     st_folium(mapa, width=None, height=600)
 
 
-
-# Conclusiones
-
+# CONCLUSION
 st.markdown("---")
 st.markdown(
     """
