@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Aplicación Streamlit para el proyecto final de Programación en SIG.
-Tema: Expropiaciones de la Ruta Nacional N.° 32.
+Tema: Expropiaciones de la Ruta Nacional N.° 27.
 Autor: Ervin López Espinoza
 """
 
@@ -12,11 +12,10 @@ import folium
 from streamlit_folium import st_folium
 
 
-# ---------------------------------------------------------
+
 # CONFIGURACIÓN GENERAL
-# ---------------------------------------------------------
 st.set_page_config(
-    page_title="Expropiaciones Ruta Nacional N.° 32",
+    page_title="Expropiaciones Ruta Nacional N.° 27",
     page_icon="🗺️",
     layout="wide"
 )
@@ -26,7 +25,7 @@ st.title("🗺️ Aplicación web SIG: Expropiaciones en la Ruta Nacional N.° 3
 st.markdown(
     """
     Esta aplicación presenta un análisis interactivo de datos asociados a procesos de
-    expropiación vinculados con la **Ruta Nacional N.° 32**.
+    expropiación vinculados con la **Ruta Nacional N.° 27**.
 
     La información incluye datos registrales, administrativos y espaciales, tales como:
     finca, plano catastrado, área registral, provincia, cantón, distrito, condición del trámite
@@ -36,18 +35,15 @@ st.markdown(
 )
 
 
-# ---------------------------------------------------------
-# URLS DE DATOS
-# Ajuste: el repositorio nuevo se llama PROYECTO.
-# Si su rama principal se llama master, cambie "main" por "master".
-# ---------------------------------------------------------
+
+# CARGA DE DATOS
 URL_CSV = "https://raw.githubusercontent.com/Ervlopez/PROYECTO/main/Datos_Expropiacion-III.csv"
 URL_GEOJSON = "https://raw.githubusercontent.com/Ervlopez/PROYECTO/main/distritos.geojson"
 
 
-# ---------------------------------------------------------
-# CARGA DE DATOS
-# ---------------------------------------------------------
+
+# CONFIGURACION DE DATOS
+
 @st.cache_data
 def cargar_datos():
     df = pd.read_csv(URL_CSV, encoding="latin1")
@@ -78,9 +74,7 @@ except Exception as error:
     st.stop()
 
 
-# ---------------------------------------------------------
 # FILTROS INTERACTIVOS
-# ---------------------------------------------------------
 st.sidebar.header("🔎 Filtros interactivos")
 
 provincias = sorted(expropiaciones["Provincia"].dropna().unique())
@@ -116,9 +110,7 @@ datos_filtrados = expropiaciones[
 st.sidebar.markdown(f"**Registros seleccionados:** {len(datos_filtrados)}")
 
 
-# ---------------------------------------------------------
 # INDICADORES GENERALES
-# ---------------------------------------------------------
 col1, col2, col3 = st.columns(3)
 
 with col1:
@@ -131,9 +123,7 @@ with col3:
     st.metric("Provincias seleccionadas", datos_filtrados["Provincia"].nunique())
 
 
-# ---------------------------------------------------------
 # TABLA CON PANDAS
-# ---------------------------------------------------------
 st.header("1. Tabla de datos filtrados")
 
 st.markdown(
@@ -157,9 +147,7 @@ st.dataframe(
 )
 
 
-# ---------------------------------------------------------
 # GRÁFICO ESTADÍSTICO CON PLOTLY
-# ---------------------------------------------------------
 st.header("2. Gráfico estadístico")
 
 st.markdown(
@@ -197,9 +185,7 @@ else:
     st.plotly_chart(fig, use_container_width=True)
 
 
-# ---------------------------------------------------------
 # TABLA RESUMEN ADICIONAL
-# ---------------------------------------------------------
 st.subheader("Resumen por condición del trámite")
 
 st.markdown(
@@ -233,9 +219,7 @@ if not datos_filtrados.empty:
     st.dataframe(resumen_condicion, use_container_width=True)
 
 
-# ---------------------------------------------------------
 # MAPA INTERACTIVO CON FOLIUM
-# ---------------------------------------------------------
 st.header("3. Mapa interactivo")
 
 st.markdown(
@@ -267,37 +251,59 @@ else:
         }
     ).add_to(mapa)
 
-    # Marcadores de expropiaciones
-    for _, registro in datos_filtrados.iterrows():
-        popup_html = f"""
-        <b>Identificador:</b> {registro.get('Identificador', 'N/D')}<br>
-        <b>Finca:</b> {registro.get('Finca', 'N/D')}<br>
-        <b>Año:</b> {registro.get('Año', 'N/D')}<br>
-        <b>Provincia:</b> {registro.get('Provincia', 'N/D')}<br>
-        <b>Cantón:</b> {registro.get('Cantón', 'N/D')}<br>
-        <b>Distrito:</b> {registro.get('Distrito', 'N/D')}<br>
-        <b>Condición:</b> {registro.get('condicion', 'N/D')}<br>
-        <b>Área registral:</b> {registro.get('Area_re', 0):,.2f} m²
-        """
+    # Marcadores de expropiaciones organizados por condición.
+    # Esto permite activar o desactivar cada condición desde el control de capas.
+    colores_condicion = {
+        "En trámite": "orange",
+        "Finalizado": "green",
+        "Finalizada": "green",
+        "Concluido": "green",
+        "Pendiente": "red",
+    }
 
-        folium.CircleMarker(
-            location=[registro["latitud"], registro["longiud"]],
-            radius=5,
-            weight=1,
-            fill=True,
-            fill_opacity=0.7,
-            popup=folium.Popup(popup_html, max_width=300),
-            tooltip=f"{registro.get('Provincia', 'N/D')} - {registro.get('condicion', 'N/D')}"
-        ).add_to(mapa)
+    condiciones_mapa = sorted(datos_filtrados["condicion"].dropna().unique())
 
-    folium.LayerControl().add_to(mapa)
+    for condicion in condiciones_mapa:
+        grupo_condicion = folium.FeatureGroup(
+            name=f"Condición: {condicion}",
+            show=True
+        )
+
+        datos_condicion = datos_filtrados[datos_filtrados["condicion"] == condicion]
+        color_punto = colores_condicion.get(condicion, "blue")
+
+        for _, registro in datos_condicion.iterrows():
+            popup_html = f"""
+            <b>Identificador:</b> {registro.get('Identificador', 'N/D')}<br>
+            <b>Finca:</b> {registro.get('Finca', 'N/D')}<br>
+            <b>Año:</b> {registro.get('Año', 'N/D')}<br>
+            <b>Provincia:</b> {registro.get('Provincia', 'N/D')}<br>
+            <b>Cantón:</b> {registro.get('Cantón', 'N/D')}<br>
+            <b>Distrito:</b> {registro.get('Distrito', 'N/D')}<br>
+            <b>Condición:</b> {registro.get('condicion', 'N/D')}<br>
+            <b>Área registral:</b> {registro.get('Area_re', 0):,.2f} m²
+            """
+
+            folium.CircleMarker(
+                location=[registro["latitud"], registro["longiud"]],
+                radius=5,
+                color=color_punto,
+                fill=True,
+                fill_color=color_punto,
+                fill_opacity=0.7,
+                weight=1,
+                popup=folium.Popup(popup_html, max_width=300),
+                tooltip=f"{registro.get('Provincia', 'N/D')} - {registro.get('condicion', 'N/D')}"
+            ).add_to(grupo_condicion)
+
+        grupo_condicion.add_to(mapa)
+
+    folium.LayerControl(collapsed=False).add_to(mapa)
 
     st_folium(mapa, width=None, height=600)
 
 
-# ---------------------------------------------------------
-# CIERRE
-# ---------------------------------------------------------
+# CONCLUSION
 st.markdown("---")
 st.markdown(
     """
