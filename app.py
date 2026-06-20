@@ -12,7 +12,6 @@ import folium
 from streamlit_folium import st_folium
 
 
-
 # CONFIGURACIÓN GENERAL
 
 st.set_page_config(
@@ -26,7 +25,7 @@ st.title("🗺️ Aplicación web SIG: Expropiaciones en la Ruta Nacional N.° 2
 st.markdown(
     """
     Esta aplicación presenta un análisis interactivo de datos asociados a procesos de
-    expropiación vinculados con la **Ruta Nacional N.° 32**.
+    expropiación vinculados con la **Ruta Nacional N.° 27**.
 
     La información incluye datos registrales, administrativos y espaciales, tales como:
     finca, plano catastrado, área registral, provincia, cantón, distrito, condición del trámite
@@ -36,10 +35,12 @@ st.markdown(
 )
 
 
+
 # CARGA DE DATOS
 
 URL_CSV = "https://raw.githubusercontent.com/Ervlopez/PROYECTO/main/Datos_Expropiacion-III.csv"
 URL_GEOJSON = "https://raw.githubusercontent.com/Ervlopez/PROYECTO/main/distritos.geojson"
+
 
 
 @st.cache_data
@@ -61,6 +62,18 @@ def cargar_datos():
     return df
 
 
+try:
+    expropiaciones = cargar_datos()
+except Exception as error:
+    st.error(
+        "No se pudieron cargar los datos. Revise que los archivos estén en el repositorio "
+        "público de GitHub y que las URL raw sean correctas."
+    )
+    st.exception(error)
+    st.stop()
+
+
+
 # FILTRO GENERAL POR CONDICIÓN
 
 opciones_condicion = ["Todas"] + sorted(
@@ -78,7 +91,6 @@ else:
     datos_filtrados = expropiaciones[
         expropiaciones["condicion"] == condicion_seleccionada
     ].copy()
-
 
 
 # INDICADORES GENERALES
