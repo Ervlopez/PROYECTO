@@ -62,15 +62,6 @@ def cargar_datos():
     return df
 
 
-try:
-    expropiaciones = cargar_datos()
-except Exception as error:
-    st.error(
-        "No se pudieron cargar los datos. Revise que los archivos estén en el repositorio "
-        "público de GitHub y que las URL raw sean correctas."
-    )
-    st.exception(error)
-    st.stop()
 
 
 
