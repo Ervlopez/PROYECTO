@@ -58,39 +58,23 @@ def cargar_datos():
 
 # FILTROS INTERACTIVOS
 
-st.sidebar.header("🔎 Filtros interactivos")
 
-provincias = sorted(expropiaciones["Provincia"].dropna().unique())
-provincia_sel = st.sidebar.multiselect(
-    "Seleccione una o varias provincias:",
-    options=provincias,
-    default=provincias
+opciones_condicion = ["Todas"] + sorted(
+    df["condicion"].dropna().unique().tolist()
 )
 
-condiciones = sorted(expropiaciones["condicion"].dropna().unique())
-condicion_sel = st.sidebar.multiselect(
-    "Seleccione la condición del trámite:",
-    options=condiciones,
-    default=condiciones
+condicion = st.sidebar.selectbox(
+    "Seleccione una condición",
+    opciones_condicion
 )
 
-area_min = float(expropiaciones["Area_re"].min())
-area_max = float(expropiaciones["Area_re"].max())
-
-rango_area = st.sidebar.slider(
-    "Rango de área registral (m²):",
-    min_value=area_min,
-    max_value=area_max,
-    value=(area_min, area_max)
-)
-
-datos_filtrados = expropiaciones[
-    (expropiaciones["Provincia"].isin(provincia_sel)) &
-    (expropiaciones["condicion"].isin(condicion_sel)) &
-    (expropiaciones["Area_re"].between(rango_area[0], rango_area[1]))
-].copy()
-
-st.sidebar.markdown(f"**Registros seleccionados:** {len(datos_filtrados)}")
+# Aplicar filtro
+if condicion == "Todas":
+    datos_filtrados = df.copy()
+else:
+    datos_filtrados = df[
+        df["condicion"] == condicion
+    ]
 
 
 
