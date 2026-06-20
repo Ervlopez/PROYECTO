@@ -209,13 +209,24 @@ st.markdown(
 )
 
 if not datos_filtrados.empty:
+    # Se usa size() para contar registros sin depender de una columna específica
+    # como "Identificador", ya que el nombre puede variar según el CSV.
     resumen_condicion = (
         datos_filtrados
         .groupby("condicion", as_index=False)
-        .agg(
-            cantidad_registros=("Identificador", "count"),
-            area_total_m2=("Area_re", "sum")
-        )
+        .agg(area_total_m2=("Area_re", "sum"))
+    )
+
+    conteo_condicion = (
+        datos_filtrados
+        .groupby("condicion")
+        .size()
+        .reset_index(name="cantidad_registros")
+    )
+
+    resumen_condicion = (
+        conteo_condicion
+        .merge(resumen_condicion, on="condicion", how="left")
         .sort_values("cantidad_registros", ascending=False)
     )
 
