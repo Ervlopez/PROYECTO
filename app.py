@@ -94,6 +94,18 @@ condicion_sel = st.sidebar.multiselect(
 area_min = float(expropiaciones["Area_re"].min())
 area_max = float(expropiaciones["Area_re"].max())
 
+rango_area = st.sidebar.slider(
+    "Rango de área registral (m²):",
+    min_value=area_min,
+    max_value=area_max,
+    value=(area_min, area_max)
+)
+
+datos_filtrados = expropiaciones[
+    (expropiaciones["Provincia"].isin(provincia_sel)) &
+    (expropiaciones["condicion"].isin(condicion_sel)) &
+    (expropiaciones["Area_re"].between(rango_area[0], rango_area[1]))
+].copy()
 
 st.sidebar.markdown(f"**Registros seleccionados:** {len(datos_filtrados)}")
 
